@@ -1,11 +1,30 @@
-import express from "express"
-import { createModel, getAllModels, getModel } from "../controllers/model.controller.js"
-import { deleteModel } from "mongoose"
-const router = express.Router()
+import express from "express";
+import { createModel, getAllModels, getModel, deleteModel } from "../controllers/model.controller.js";
+import multer from "multer";
 
-router.get('/', getAllModels)
-router.get('/:id', getModel)
-router.post('/', createModel)
-router.delete('/:id', deleteModel)
+// Configure multer for file storage
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, 'uploads/') // Temporary storage before uploading to Cloudinary
+    },
+    filename: function (req, file, cb) {
+        cb(null, Date.now() + '-' + file.originalname)
+    }
+});
 
-export default router 
+// Create upload middleware
+const upload = multer({ 
+    storage: storage,
+    limits: {
+        fileSize: 50 * 1024 * 1024 // Limit file size to 50MB (adjust as needed)
+    }
+});
+
+const router = express.Router();
+
+router.get('/', getAllModels);
+router.get('/:id', getModel);
+router.post('/', upload.single('file'), createModel); // Add multer middleware here
+router.delete('/:id', deleteModel);
+
+export default router;

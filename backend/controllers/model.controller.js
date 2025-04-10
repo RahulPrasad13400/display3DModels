@@ -1,5 +1,7 @@
 import Model3D from "../models/model.js"
 import { v2 as cloudinary } from "cloudinary"
+import fs from 'fs';
+import path from 'path';
 
 export const getAllModels = async (req, res) => {
     try {
@@ -42,43 +44,47 @@ export const getModel = async (req, res) => {
 
 export const createModel = async (req, res) => {
     try {
-        const {name, description} = req.body;
-        const file = req.file; 
-        
-        if(!name || !description || !file) {
+        console.log(req.body)
+        const { name, description } = req.body;
+        const file = req.file;
+
+        if (!name || !description || !file) {
+            if (file) fs.unlinkSync(file.path);
             return res.status(400).json({
                 status: false,
                 message: "All fields are required"
             });
         }
 
-        let cloudinaryResponse = null;
-        if(file) {
-            cloudinaryResponse = await cloudinary.uploader.upload(file.path, {
-                folder: "model3d",
-                resource_type: "raw"  // Important for GLB files
-            });
-        }
+        // Upload to Cloudinary
+        const cloudinaryResponse = await cloudinary.uploader.upload(file.path, {
+            folder: "model3d",
+            resource_type: "raw"
+        });
 
+        // Clean up temp file
+        fs.unlinkSync(file.path);
+
+        // Create model with Cloudinary response data
         const model = await Model3D.create({
             name,
             description,
-            file: cloudinaryResponse?.secure_url || "",
-            cloudinaryPublicId: cloudinaryResponse?.public_id || ""  
+            file: cloudinaryResponse.secure_url,
+            cloudinaryPublicId: cloudinaryResponse.public_id  // Now properly set from Cloudinary
         });
 
-        res.status(201).json({  
+        res.status(201).json({
             status: true,
-            model
+            data: model
         });
 
     } catch (error) {
-        console.log("Error in createModel controller:", error.message);
+        if (req.file) fs.unlinkSync(req.file.path);
         res.status(500).json({
             status: false,
             message: "Server error",
             error: error.message
-        }); 
+        });
     }
 }
 
